@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер задач</title>
+    <style>
+        :root {
+            --app-bg: #1A1A1A;
+            --card-bg-subtle: #202020;
+            --card-border: #777777;
+            --neon-green: #84D431;
+            --text-main: #E5E7EB;
+            --text-muted: #9CA3AF;
+            --priority-red: #FF0000;
+            --priority-red-bg: #FF330033;
+            --priority-yellow: #F4E115;
+            --priority-yellow-bg: #F9DB3133;
+            --priority-green: #84D431;
+            --priority-green-bg: #84D43133;
+        }
+
+        @font-face {
+            font-family: 'InterLocal';
+            src: url("../fonts/Inter-VariableFont_opsz,wght.ttf");
+            font-weight: 100 900;
+            font-style: normal;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--app-bg);
+            color: var(--text-main);
+            font-family: 'InterLocal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            user-select: none;
+        }
+
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--app-bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--card-border);
+            border-radius: 4px;
+        }
+
+        header {
+            width: 100%;
+            max-width: 1680px;
+            margin: 60px auto 62px auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .exit-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1680px;
+            margin: 0 auto;
+            flex: 1;
+            display: grid;
+            grid-template-columns: 722px 926px;
+            gap: 24px;
+            align-items: start;
+            margin-bottom: 80px;
+            justify-content: center;
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(to top, #1A1A1A, #262626);
+            border: 1px solid #77777780;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            min-height: 822px;
+        }
+
+        /* Верхнее зелёное свечение */
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            height: 130px;
+            background: radial-gradient(ellipse at 50% 0%, rgba(132, 204, 22, 0.12) 0%, transparent 75%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .panel > * {
+            position: relative;
+            z-index: 2;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .panel-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: #FFFFFF;
+            letter-spacing: -0.025em;
+        }
+
+        .btn-primary {
+            background-color: var(--neon-green);
+            color: #000000;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(135, 234, 27, 0.2);
+            width: 190px;
+            height: 54px;
+        }
+        .btn-primary:hover {
+            opacity: 0.8;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            gap: 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-text {
+            font-size: 32px;
+            color: #FFFFFF;
+            font-weight: 500;
+        }
+
+        .tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .task-card {
+            width: 100%;
+            max-height: 80px;
+            padding: 16px;
+            border-radius: 8px;
+            background-color: var(--card-bg-subtle);
+            border: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .task-card:hover {
+            opacity: 0.8;
+        }
+        .task-card.selected {
+            border-color: var(--neon-green);
+            background-color: var(--card-bg-subtle);
+        }
+        .task-card.completed {
+            opacity: 0.4;
+        }
+        .task-card.completed:hover {
+            opacity: 0.7;
+        }
+
+        .task-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .custom-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 2px;
+            border: 1px solid var(--card-border);
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-top: 2px;
+            transition: border-color 0.2s;
+        }
+        .custom-checkbox:hover {
+            opacity: 0.8;
+        }
+        .task-card.completed .custom-checkbox {
+            border-color: var(--card-border);
+            color: var(--card-border);
+        }
+
+        .task-title {
+            font-weight: 500;
+            font-size: 16px;
+            color: #FFFFFF;
+            line-height: 1.4;
+        }
+        .task-card.completed .task-title {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .priority-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px;
+            border-radius: 2px;
+            font-size: 8px;
+            font-weight: 500;
+            width: 91px;
+            height: 22px;
+        }
+        .badge-red { background-color: var(--priority-red-bg); color: var(--priority-red); }
+        .badge-yellow { background-color: var(--priority-yellow-bg); color: var(--priority-yellow); }
+        .badge-green { background-color: var(--priority-green-bg); color: var(--priority-green); }
+
+        .task-assignee {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .editor-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .editor-title-input {
+            background: transparent;
+            font-size: 32px;
+            font-weight: 600;
+            color: #FFFFFF;
+            border: none;
+            border-bottom: 1px solid transparent;
+            outline: none;
+            width: 100%;
+            margin-right: 16px;
+            padding: 4px 0;
+            transition: border-color 0.2s;
+        }
+        .editor-title-input:focus {
+            border-color: var(--card-border);
+        }
+
+        .editor-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .editor-action-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .icon-edit {
+            fill: var(--card-border);
+        }
+        .icon-edit:hover {
+            fill: var(--neon-green);
+        }
+
+        .icon-delete {
+            fill: var(--card-border);
+        }
+        .icon-delete:hover {
+            fill: var(--priority-red);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 16px;
+            color: #FFFFFF;
+            margin-bottom: 6px;
+            font-weight: 400;
+        }
+
+        .dropdown-btn {
+            width: 100%;
+            background-color: var(--card-bg-subtle);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--text-main);
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .dropdown-btn:hover {
+            opacity: 0.8;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 8px;
+            background-color: #202020;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+            z-index: 20;
+            padding: 6px 0;
+        }
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--text-main);
+            transition: background-color 0.2s;
+        }
+        .dropdown-item:hover {
+            background-color: var(--card-bg-subtle);
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-red { background-color: var(--priority-red); }
+        .dot-yellow { background-color: var(--priority-yellow); }
+        .dot-green { background-color: var(--priority-green); }
+
+        .subitems-container {
+            margin-bottom: 24px;
+        }
+
+        .subitem-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(42, 44, 48, 0.6);
+        }
+        .subitem-row:last-child {
+            border-bottom: none;
+        }
+
+        .subitem-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .drag-handle {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            cursor: grab;
+            padding: 0 2px;
+        }
+        .drag-dot-row {
+            display: flex;
+            gap: 2px;
+        }
+        .drag-dot {
+            width: 2px;
+            height: 2px;
+            background-color: var(--card-border);
+            border-radius: 50%;
+        }
+
+        .subitem-title {
+            font-size: 14px;
+            color: #E5E7EB;
+        }
+        .subitem-title.completed {
+            text-decoration: line-through;
+            color: #6B7280;
+        }
+
+        .subitem-remove {
+            background: none;
+            border: none;
+            color: var(--card-border);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            transition: color 0.2s;
+        }
+        .subitem-remove:hover {
+            color: var(--priority-red);
+        }
+
+        .add-subitem-box {
+            border: 2px solid var(--card-border);
+            border-radius: 8px;
+            background-color: var(--card-bg-subtle);
+            margin-top: 56px;
+        }
+
+        .add-subitem-trigger {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 12px 16px;
+            color: #D1D5DB;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 58px;
+        }
+
+        .add-subitem-form {
+            display: none;
+            align-items: center;
+            padding: 6px 12px;
+            height: 58px;
+        }
+        .add-subitem-form.show {
+            display: flex;
+        }
+
+        .subitem-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #FFFFFF;
+            font-size: 14px;
+            outline: none;
+            padding: 6px 0;
+        }
+
+        .subitem-ok-btn {
+            background: none;
+            border: none;
+            color: var(--neon-green);
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .editor-footer {
+            display: flex;
+            gap: 16px;
+            margin-top: auto;
+            padding-top: 16px;
+        }
+
+        .btn-save {
+            flex: 1;
+            background-color: var(--neon-green);
+            color: #000000;
+            font-weight: 600;
+            padding: 14px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            box-shadow: 0 4px 12px rgba(135, 234, 27, 0.2);
+            max-width: 258px;
+            height: 67px;
+        }
+        .btn-save:hover {
+            opacity: 0.8;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background-color: var(--card-bg-subtle);
+            border: 2px solid var(--card-border);
+            color: #E5E7EB;
+            font-weight: 600;
+            padding: 14px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            max-width: 178px;
+        }
+        .btn-cancel:hover {
+            opacity: 0.8;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+        .rotate {
+            transform: rotate(180deg);
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-card {
+            width: 580px;
+            height: 380px;
+            background: linear-gradient(to top, #1A1A1A, #262626);
+            border: 1px solid var(--neon-green);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        .modal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            height: 100px;
+            background: radial-gradient(ellipse at 50% 0%, rgba(132, 204, 22, 0.15) 0%, transparent 75%);
+            pointer-events: none;
+        }
+
+        .modal-title {
+            font-size: 32px;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 60px;
+            z-index: 2;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 460px;
+            z-index: 2;
+        }
+
+        .btn-modal-confirm {
+            flex: 1;
+            background-color: var(--neon-green);
+            color: #000000;
+            font-weight: 600;
+            font-size: 16px;
+            height: 60px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(132, 204, 22, 0.3);
+        }
+        .btn-modal-confirm:hover {
+            opacity: 0.9;
+        }
+
+        .btn-modal-cancel {
+            flex: 1;
+            background-color: var(--card-bg-subtle);
+            border: 2px solid var(--card-border);
+            color: #FFFFFF;
+            font-weight: 600;
+            font-size: 16px;
+            height: 60px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .btn-modal-cancel:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-box">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 23.3332L28.602 29.0358C29.073 29.3891 29.66 29.5512 30.2455 29.4897C30.831 29.4283 31.3716 29.1478 31.759 28.7045L46.6667 11.6665" stroke="#84D431" stroke-width="4.66667" stroke-linecap="round"/>
+                <path d="M49 28.0001C49.0001 32.388 47.6257 36.6657 45.0699 40.2324C42.514 43.7991 38.9052 46.4756 34.7501 47.8861C30.5951 49.2965 26.1026 49.3699 21.9037 48.0961C17.7048 46.8223 14.0103 44.2653 11.3392 40.784C8.66815 37.3028 7.15462 33.0723 7.01122 28.6868C6.86782 24.3012 8.10176 19.9809 10.5397 16.3326C12.9777 12.6844 16.4972 9.8914 20.604 8.34602C24.7107 6.80063 29.1984 6.58047 33.4367 7.71644" stroke="#84D431" stroke-width="4.66667" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <a href="../general/index.html">
+            <button class="exit-btn" title="Выход">
+                <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16.3939 46.6666C15.8526 46.6666 15.3348 46.4783 14.8876 46.1253L10.1805 42.1948C9.91666 41.9772 9.70396 41.7041 9.55753 41.3949C9.4111 41.0858 9.33452 40.7482 9.33325 40.4061V15.5997C9.33325 14.8937 9.63921 14.2347 10.1805 13.7875L14.8876 9.85707C15.5937 9.29222 16.5586 9.17454 17.3824 9.55111C17.7909 9.74017 18.1367 10.0424 18.3786 10.422C18.6206 10.8017 18.7486 11.2427 18.7474 11.6928V44.3366C18.7486 44.7867 18.6206 45.2278 18.3786 45.6074C18.1367 45.987 17.7909 46.2892 17.3824 46.4783C17.0764 46.596 16.7234 46.6666 16.3939 46.6666ZM37.5758 35.0636V20.9423C37.5758 19.8832 38.8468 19.3654 39.5764 20.1185L45.8133 26.3555C46.7312 27.2733 46.7312 28.7561 45.8133 29.674L39.5764 35.9109C39.4104 36.0735 39.2001 36.1834 38.9718 36.2267C38.7436 36.27 38.5076 36.2447 38.2937 36.1541C38.0797 36.0635 37.8974 35.9116 37.7697 35.7175C37.6419 35.5235 37.5745 35.2959 37.5758 35.0636Z" fill="#84D431"/>
+                    <path d="M17.571 14H30.5156C31.1746 14 31.6923 14.5178 31.6923 15.1768V21.0606M17.571 39.889H30.5156C31.1746 39.889 31.6923 39.3713 31.6923 38.7123V32.8284M44.6369 26.9445H25.8085" stroke="#84D431" stroke-width="2.35355" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </a>
+
+    </header>
+
+    <main>
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Наши задачи</h2>
+                <button class="btn-primary" id="btn-new-task">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13.5 9H9M9 9H4.5M9 9V4.5M9 9V13.5" stroke="black" stroke-width="1.125" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg> Новая задача
+                </button>
+            </div>
+            <div id="tasks-container" class="tasks-list">
+            </div>
+        </section>
+
+        <section id="editor-panel" class="panel">
+            <div id="editor-content-wrapper">
+                <div class="editor-top">
+                    <input type="text" id="editor-title" class="editor-title-input" value="">
+                    <div class="editor-actions">
+                        <button class="editor-action-btn" onclick="focusTitle()" title="Редактировать">
+                            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" class="icon-edit">
+                                <path d="M32.5 20C32.5 19.6685 32.6317 19.3505 32.8661 19.1161C33.1005 18.8817 33.4185 18.75 33.75 18.75C34.0815 18.75 34.3995 18.8817 34.6339 19.1161C34.8683 19.3505 35 19.6685 35 20V33.75C35 34.0815 34.8683 34.3995 34.6339 34.6339C34.3995 34.8683 34.0815 35 33.75 35H6.25C5.91848 35 5.60054 34.8683 5.36612 34.6339C5.1317 34.3995 5 34.0815 5 33.75V6.25C5 5.91848 5.1317 5.60054 5.36612 5.36612C5.60054 5.1317 5.91848 5 6.25 5H20C20.3315 5 20.6495 5.1317 20.8839 5.36612C21.1183 5.60054 21.25 5.91848 21.25 6.25C21.25 6.58152 21.1183 6.89946 20.8839 7.13388C20.6495 7.3683 20.3315 7.5 20 7.5H7.5V32.5H32.5V20Z"/>
+                                <path d="M18.3582 21.6459L20.4207 21.353L33.0848 8.68498C33.2103 8.57128 33.3114 8.43327 33.3819 8.27933C33.4524 8.12539 33.4909 7.95872 33.4951 7.78944C33.4993 7.62016 33.469 7.45179 33.4061 7.29457C33.3433 7.13734 33.2491 6.99452 33.1294 6.87479C33.0096 6.75505 32.8668 6.66089 32.7096 6.59802C32.5524 6.53515 32.384 6.50488 32.2147 6.50905C32.0454 6.51322 31.8788 6.55174 31.7248 6.62227C31.5709 6.6928 31.4329 6.79387 31.3192 6.91936L18.6473 19.5834L18.3543 21.6459H18.3582ZM34.8582 5.14592C35.2067 5.49416 35.4831 5.90765 35.6716 6.36275C35.8602 6.81785 35.9573 7.30564 35.9573 7.79826C35.9573 8.29088 35.8602 8.77868 35.6716 9.23378C35.4831 9.68888 35.2067 10.1024 34.8582 10.4506L21.8934 23.4154C21.7019 23.606 21.4538 23.7293 21.1864 23.767L17.0614 24.3608C16.8693 24.3882 16.6735 24.3705 16.4894 24.3091C16.3053 24.2478 16.1381 24.1444 16.0009 24.0072C15.8637 23.87 15.7603 23.7027 15.6989 23.5187C15.6376 23.3346 15.6199 23.1388 15.6473 22.9467L16.2332 18.8217C16.2712 18.5524 16.396 18.3028 16.5887 18.1108L29.5575 5.14982C30.2606 4.44733 31.2139 4.05273 32.2078 4.05273C33.2018 4.05273 34.1551 4.44733 34.8582 5.14982V5.14592Z"/>
+                            </svg>
+                        </button>
+                        <button class="editor-action-btn delete" onclick="confirmDeleteTask()" title="Удалить">
+                            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" class="icon-delete">
+                                <path d="M32.4167 6.76665H25.45V5.93332C25.45 5.27028 25.1866 4.63439 24.7178 4.16555C24.2489 3.69671 23.613 3.43332 22.95 3.43332H17.05C16.387 3.43332 15.7511 3.69671 15.2822 4.16555C14.8134 4.63439 14.55 5.27028 14.55 5.93332V6.76665H7.58333C7.36232 6.76665 7.15036 6.85445 6.99408 7.01073C6.8378 7.16701 6.75 7.37897 6.75 7.59999C6.75 7.821 6.8378 8.03296 6.99408 8.18924C7.15036 8.34552 7.36232 8.43332 7.58333 8.43332H8.78333L9.48333 32.5167C9.51077 33.6024 9.96221 34.6341 10.741 35.3911C11.5198 36.1481 12.564 36.57 13.65 36.5667H26.35C27.436 36.57 28.4802 36.1481 29.259 35.3911C30.0378 34.6341 30.4892 33.6024 30.5167 32.5167L31.2167 8.43332H32.4167C32.6377 8.43332 32.8496 8.34552 33.0059 8.18924C33.1622 8.03296 33.25 7.821 33.25 7.59999C33.25 7.37897 33.1622 7.16701 33.0059 7.01073C32.8496 6.85445 32.6377 6.76665 32.4167 6.76665ZM16.2167 5.93332C16.2167 5.71231 16.3045 5.50034 16.4607 5.34406C16.617 5.18778 16.829 5.09999 17.05 5.09999H22.95C23.171 5.09999 23.383 5.18778 23.5393 5.34406C23.6955 5.50034 23.7833 5.71231 23.7833 5.93332V6.76665H16.2167V5.93332ZM28.85 32.4667C28.8326 33.1181 28.5616 33.737 28.0946 34.1915C27.6276 34.646 27.0017 34.9002 26.35 34.9H13.65C12.9983 34.9002 12.3724 34.646 11.9054 34.1915C11.4384 33.737 11.1674 33.1181 11.15 32.4667L10.4333 8.43332H29.5667L28.85 32.4667Z"/>
+                                <path d="M13.9583 13.3333C13.9583 13.1123 14.046 12.9004 14.2023 12.7441C14.3586 12.5878 14.5706 12.5 14.7916 12.5C15.0126 12.5 15.2246 12.5878 15.3808 12.7441C15.5371 12.9004 15.6249 13.1123 15.6249 13.3333L16.0416 30C16.0416 30.221 15.9538 30.433 15.7975 30.5893C15.6412 30.7455 15.4293 30.8333 15.2083 30.8333C14.9872 30.8333 14.7753 30.7455 14.619 30.5893C14.4627 30.433 14.3749 30.221 14.3749 30L13.9583 13.3333ZM26.0416 13.345C26.0416 13.124 25.9538 12.912 25.7975 12.7557C25.6412 12.5995 25.4293 12.5117 25.2083 12.5117C24.9872 12.5117 24.7753 12.5995 24.619 12.7557C24.4627 12.912 24.3749 13.124 24.3749 13.345L23.9583 30.0117C23.9583 30.2327 24.046 30.4446 24.2023 30.6009C24.3586 30.7572 24.5706 30.845 24.7916 30.845C25.0126 30.845 25.2246 30.7572 25.3808 30.6009C25.5371 30.4446 25.6249 30.2327 25.6249 30.0117L26.0416 13.345Z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Приоритет</label>
+                        <button id="priority-dropdown-btn" class="dropdown-btn" onclick="togglePriorityMenu()">
+                            <span id="selected-priority-label" style="display: flex; align-items: center; gap: 8px;">
+                                <span class="dot dot-yellow"></span> Средний
+                            </span>
+                            <span id="priority-arrow" style="font-size: 10px; color: var(--text-muted); transition: transform 0.2s;">▼</span>
+                        </button>
+                        <div id="priority-menu" class="dropdown-menu">
+                            <div class="dropdown-item" onclick="selectPriority('low')">
+                                <span class="dot dot-green"></span> Низкий
+                            </div>
+                            <div class="dropdown-item" onclick="selectPriority('medium')">
+                                <span class="dot dot-yellow"></span> Средний
+                            </div>
+                            <div class="dropdown-item" onclick="selectPriority('high')">
+                                <span class="dot dot-red"></span> Высокий
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Кому</label>
+                        <div class="dropdown-btn" style="cursor: default;">
+                            <span style="display: flex; align-items: center; gap: 8px;">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M8.23091 8.75666C7.74369 8.26888 7.50008 7.67916 7.50008 6.98749C7.50008 6.29582 7.74369 5.7061 8.23091 5.21832C8.71814 4.73054 9.30786 4.48693 10.0001 4.48749C10.6923 4.48804 11.282 4.73166 11.7692 5.21832C12.2565 5.70499 12.5001 6.29471 12.5001 6.98749C12.5001 7.68027 12.2565 8.26999 11.7692 8.75666C11.282 9.24332 10.6923 9.48693 10.0001 9.48749C9.30786 9.48804 8.71814 9.24443 8.23091 8.75666ZM4.16675 14.6475V14.1408C4.16675 13.7969 4.26675 13.4753 4.46675 13.1758C4.6673 12.8758 4.93675 12.643 5.27508 12.4775C6.06175 12.1003 6.84897 11.8175 7.63675 11.6292C8.42397 11.4403 9.21175 11.3458 10.0001 11.3458C10.7884 11.3458 11.5765 11.4403 12.3642 11.6292C13.152 11.818 13.9387 12.1008 14.7242 12.4775C15.0631 12.643 15.3326 12.8758 15.5326 13.1758C15.7331 13.4753 15.8334 13.7969 15.8334 14.1408V14.6475C15.8334 14.8919 15.7504 15.0975 15.5842 15.2642C15.4181 15.4297 15.2126 15.5125 14.9676 15.5125H5.03341C4.78841 15.5125 4.58286 15.4294 4.41675 15.2633C4.25064 15.0972 4.1673 14.8919 4.16675 14.6475Z" fill="white"/>
+                                </svg>Себе
+                            </span>
+                            <span style="font-size: 10px; color: var(--text-muted);">▼</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="subitems-container">
+                    <div id="subitems-list">
+                    </div>
+
+                    <div class="add-subitem-box">
+                        <button id="add-subitem-trigger-btn" class="add-subitem-trigger" onclick="showSubitemInput()">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M13.5 9H9M9 9H4.5M9 9V4.5M9 9V13.5" stroke="white" stroke-width="1.125" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg> Добавить подпункт
+                        </button>
+                        <form id="add-subitem-form" class="add-subitem-form" onsubmit="addSubitem(event)">
+                            <input type="text" id="new-subitem-input" class="subitem-input" placeholder="Введите название подпункта...">
+                            <button type="submit" class="subitem-ok-btn">ОК</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="editor-footer">
+                <button class="btn-save" onclick="saveTask()">Сохранить задачу</button>
+                <button class="btn-cancel" onclick="cancelEdits()">Отмена</button>
+            </div>
+          </div>
+        </section>
+    </main>
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-card">
+            <h3 id="modal-title" class="modal-title">Удалить задачу?</h3>
+            <div class="modal-actions">
+                <button id="modal-confirm-btn" class="btn-modal-confirm">Удалить</button>
+                <button class="btn-modal-cancel" onclick="closeModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+<script type="module" src="../scripts/app.js"></script>
+</body>
+</html>
